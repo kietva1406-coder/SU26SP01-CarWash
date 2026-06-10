@@ -1,19 +1,27 @@
-import "dotenv/config"; 
 import express from "express";
 import cors from "cors";
-import requestRoutes from "./routes/requestRoutes.mjs";
+import "dotenv/config";
 
+import requestRoutes from "./routes/requestRoutes.mjs";
+import authRoutes from "./routes/authRoutes.mjs";
+import { authMiddleware } from "./middleware/authMiddleware.mjs";
 
 const app = express();
+
 
 app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
-    res.send("Backend Running");
+    res.send("Backend Running OK");
 });
 
-app.use("/api/requests", requestRoutes);
+
+app.use("/api/auth", authRoutes);
+
+
+app.use("/api/requests", authMiddleware, requestRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 
