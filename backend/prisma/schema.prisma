@@ -1,0 +1,96 @@
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String     @id @default(uuid())
+  username  String     @unique @db.VarChar(50)
+  password  String     @db.VarChar(255)
+  fullName  String     @db.NVarChar(100)
+  role      String     @db.VarChar(20)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tasks     Task[]
+  checkIns  CheckIn[]
+  checkOuts CheckOut[]
+  auditLogs AuditLog[]
+}
+
+model Customer {
+  id          String    @id @default(uuid())
+  fullName    String    @db.NVarChar(100)
+  phoneNumber String    @unique @db.VarChar(15)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
+}
+
+model Booking {
+  id             String           @id @default(uuid())
+  customerId     String
+  status         String           @default("PENDING") @db.VarChar(20)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  customer       Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tasks          Task[]
+  bookingHistory BookingHistory[]
+}
+
+model Task {
+  id        String    @id @default(uuid())
+  bookingId String
+  staffId   String?
+  status    String    @default("ASSIGNED") @db.VarChar(20)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  booking   Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  staff     User?     @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  checkIn   CheckIn?
+  checkOut  CheckOut?
+}
+
+model CheckIn {
+  id        String   @id @default(uuid())
+  taskId    String   @unique
+  staffId   String
+  checkinAt DateTime @default(now())
+  notes     String?  @db.NVarChar(Max)
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staff     User     @relation(fields: [staffId], references: [id], onUpdate: NoAction)
+}
+
+model CheckOut {
+  id         String   @id @default(uuid())
+  taskId     String   @unique
+  staffId    String
+  checkoutAt DateTime @default(now())
+  notes      String?  @db.NVarChar(Max)
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staff      User     @relation(fields: [staffId], references: [id], onUpdate: NoAction)
+}
+
+model BookingHistory {
+  id          String   @id @default(uuid())
+  bookingId   String
+  status      String   @db.VarChar(20)
+  completedAt DateTime @default(now())
+  notes       String?  @db.NVarChar(Max)
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String   @db.VarChar(100)
+  details   String   @db.NVarChar(Max)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
