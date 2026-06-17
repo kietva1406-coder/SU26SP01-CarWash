@@ -1,182 +1,197 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Search, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
-import StaffCheckInModal from './staff-checkin-modal';
-import StaffCheckOutModal from './staff-checkout-modal';
+import { useState, useMemo } from "react";
+import { Search, CheckCircle2, AlertCircle, Users } from "lucide-react";
+import { useBookings } from "@/contexts/booking-context";
+import { useAuth } from "@/contexts/auth-context";
+import { MOCK_USERS } from "@/lib/mock-data";
+import { Booking, BookingStatus } from "@/lib/types";
+import StaffCheckInModal from "./staff-checkin-modal";
+import StaffCheckOutModal from "./staff-checkout-modal";
+import StaffWalkInModal from "./staff-walk_in-modal";
 
-interface CustomerRequest {
-  id: string;
-  customerId: string;
-  customerName: string;
-  requestType: string;
-  title: string;
-  description: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED' | 'IN_PROGRESS' | 'CHECKING_OUT' | 'COMPLETED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  createdAt: string;
-  assignedStaff: string[];
-  checkinPhotos?: string[];
-  checkinAt?: string;
-  checkinStaff?: string;
-  checkinNotes?: string;
-  checkoutPhotos?: string[];
-  checkoutAt?: string;
-  checkoutStaff?: string;
-  checkoutNotes?: string;
-  completedAt?: string;
+// ── Status display config ─────────────────────────────────────────────────────
+const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
+  PENDING_CHECKIN: {
+    label: "Chờ Check-In",
+    color: "bg-yellow-100 text-yellow-700",
+  },
+  CONFIRMED: {
+    label: "Chờ Check-In",
+    color: "bg-yellow-100 text-yellow-700",
+  },
+  CHECKED_IN: {
+    label: "Đang Thực Hiện",
+    color: "bg-blue-100 text-blue-700",
+  },
+  IN_PROGRESS: {
+    label: "Đang Thực Hiện",
+    color: "bg-blue-100 text-blue-700",
+  },
+  COMPLETED: {
+    label: "Hoàn Thành",
+    color: "bg-green-100 text-green-700",
+  },
+};
+
+// ── Helper functions ──────────────────────────────────────────────────────────
+
+/** Look up a display name from MOCK_USERS; walk-in guests get a generic label. */
+function getCustomerName(customerId: string): string {
+  if (customerId.startsWith("WALKIN-") || customerId === "WALK-IN") {
+    return "Khách Walk-In";
+  }
+  const user = MOCK_USERS.find((u) => u.id === customerId);
+  return user?.name ?? customerId;
 }
 
-// Mock requests assigned to staff
-const MOCK_ASSIGNED_REQUESTS: CustomerRequest[] = [
-  {
-    id: 'REQ001',
-    customerId: 'cus1',
-    customerName: 'Nguyễn Văn A',
-    requestType: 'SERVICE_REQUEST',
-    title: 'Rửa xe chuyên biệt',
-    description: 'Cần rửa xe ngoài giờ hành chính',
-    status: 'IN_PROGRESS',
-    priority: 'HIGH',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    assignedStaff: ['staff2'],
-    checkinPhotos: ['data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwwDAwwEBAMEBQwEAwwEBQwEBQwECAwICAgICAwEBAwICAwICAwICAwICAwICAwH/2wBDAQICAgMDAwwDAwwICAgwCAwICAgICAwIDAwMDAwIDAwMDAwIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwH/wAARCABAAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWm5ybnJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlbaWmJmaoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q=='],
-    checkinAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    checkinStaff: 'staff2',
-    checkinNotes: 'Xe bẩn, cần rửa kỹ',
-  },
-  {
-    id: 'REQ002',
-    customerId: 'cus2',
-    customerName: 'Trần Thị B',
-    requestType: 'COMPLAINT',
-    title: 'Khiếu nại rửa xe',
-    description: 'Xe vừa rửa xong nhưng vẫn còn bụi',
-    status: 'ASSIGNED',
-    priority: 'MEDIUM',
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    assignedStaff: ['staff2'],
-  },
-  {
-    id: 'REQ003',
-    customerId: 'cus3',
-    customerName: 'Lê Văn C',
-    requestType: 'SPECIAL_REQUEST',
-    title: 'Rửa nội thất',
-    description: 'Làm sạch nội thất xe',
-    status: 'COMPLETED',
-    priority: 'LOW',
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    assignedStaff: ['staff2'],
-    checkinPhotos: ['data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwwDAwwEBAMEBQwEAwwEBQwEBQwECAwICAgICAwEBAwICAwICAwICAwICAwICAwH/2wBDAQICAgMDAwwDAwwICAgwCAwICAgICAwIDAwMDAwIDAwMDAwIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwH/wAARCABAAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWm5ybnJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlbaWmJmaoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q=='],
-    checkinAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    checkinStaff: 'staff2',
-    checkoutPhotos: ['data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwwDAwwEBAMEBQwEAwwEBQwEBQwECAwICAgICAwEBAwICAwICAwICAwICAwICAwH/2wBDAQICAgMDAwwDAwwICAgwCAwICAgICAwIDAwMDAwIDAwMDAwIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwH/wAARCABAAEADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWm5ybnJ2eoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlbaWmJmaoqOkpaanqKmqsrO0tba2uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q=='],
-    checkoutAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    checkoutStaff: 'staff2',
-    checkoutNotes: 'Hoàn thành dịch vụ',
-    completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
+/** BR-A05: A booking is ready for check-in when staff hasn't started yet. */
+function canCheckIn(status: BookingStatus): boolean {
+  return status === "PENDING_CHECKIN" || status === "CONFIRMED";
+}
 
-const STATUS_COLORS: Record<string, string> = {
-  ASSIGNED: 'bg-yellow-100 text-yellow-700',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  CHECKING_OUT: 'bg-orange-100 text-orange-700',
-  COMPLETED: 'bg-green-100 text-green-700',
-};
+/** BR-A57: A booking is ready for check-out when service is in progress. */
+function canCheckOut(status: BookingStatus): boolean {
+  return status === "CHECKED_IN" || status === "IN_PROGRESS";
+}
 
-const STATUS_LABELS: Record<string, string> = {
-  ASSIGNED: 'Chờ Check-In',
-  IN_PROGRESS: 'Đang Thực Hiện',
-  CHECKING_OUT: 'Đang Hoàn Thành',
-  COMPLETED: 'Hoàn Thành',
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  LOW: 'bg-blue-100 text-blue-700',
-  MEDIUM: 'bg-yellow-100 text-yellow-700',
-  HIGH: 'bg-red-100 text-red-700',
-};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function StaffQueueView() {
-  const [requests, setRequests] = useState<CustomerRequest[]>(MOCK_ASSIGNED_REQUESTS);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState<CustomerRequest | null>(null);
+  // ── BookingContext – single source of truth ─────────────────────────────
+  // All mutations go through updateBooking(), keeping every view in sync.
+  const { bookings, updateBooking } = useBookings();
+  const { user } = useAuth();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
+  const [isWalkInOpen, setIsWalkInOpen] = useState(false);
 
-  // Count by status
-  const inProgressCount = requests.filter((r) => r.status === 'IN_PROGRESS').length;
-  const completedCount = requests.filter((r) => r.status === 'COMPLETED').length;
-  const assignedCount = requests.filter((r) => r.status === 'ASSIGNED').length;
-
-  // Filter requests
-  const filteredRequests = requests.filter(
-    (r) =>
-      r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.id.toLowerCase().includes(searchQuery.toLowerCase())
+  // ── Queue: exclude terminal / irrelevant statuses ────────────────────────
+  const queueBookings = useMemo(
+    () =>
+      bookings.filter(
+        (b) =>
+          b.status !== "CANCELLED" &&
+          b.status !== "EXPIRED" &&
+          b.status !== "REJECTED"
+      ),
+    [bookings]
   );
 
-  const handleCheckIn = (request: CustomerRequest) => {
-    setSelectedRequest(request);
+  // ── Summary stats ────────────────────────────────────────────────────────
+  const assignedCount = useMemo(
+    () => queueBookings.filter((b) => canCheckIn(b.status)).length,
+    [queueBookings]
+  );
+  const inProgressCount = useMemo(
+    () => queueBookings.filter((b) => canCheckOut(b.status)).length,
+    [queueBookings]
+  );
+  const completedCount = useMemo(
+    () => queueBookings.filter((b) => b.status === "COMPLETED").length,
+    [queueBookings]
+  );
+  const walkInCount = useMemo(
+    () => queueBookings.filter((b) => b.isWalkIn).length,
+    [queueBookings]
+  );
+
+  // ── Search filter ─────────────────────────────────────────────────────────
+  const filteredBookings = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    if (!q) return queueBookings;
+    return queueBookings.filter(
+      (b) =>
+        b.id.toLowerCase().includes(q) ||
+        b.plateNumber.toLowerCase().includes(q) ||
+        b.services.join(" ").toLowerCase().includes(q) ||
+        getCustomerName(b.customerId).toLowerCase().includes(q)
+    );
+  }, [queueBookings, searchQuery]);
+
+  // ── Check-In ─────────────────────────────────────────────────────────────
+  const handleCheckIn = (booking: Booking) => {
+    setSelectedBooking(booking);
     setIsCheckInModalOpen(true);
   };
 
+  /**
+   * Commit check-in to BookingContext.
+   * BR-A05: car must be checked in before service.
+   * BR-A19: record actual check-in time.
+   * Changes propagate instantly to ManagerDashboard and BookingHistory.
+   */
   const handleCheckInSubmit = (photos: string[], notes: string) => {
-    if (!selectedRequest) return;
-    const updated = requests.map((r) =>
-      r.id === selectedRequest.id
-        ? {
-            ...r,
-            status: 'IN_PROGRESS' as const,
-            checkinPhotos: photos,
-            checkinAt: new Date().toISOString(),
-            checkinStaff: 'staff2',
-            checkinNotes: notes,
-          }
-        : r
-    );
-    setRequests(updated);
+    if (!selectedBooking) return;
+    updateBooking(selectedBooking.id, {
+      status: "IN_PROGRESS",
+      checkInTime: new Date().toISOString(),
+      checkinPhotos: photos,
+      checkinNotes: notes,
+      checkinStaff: user?.id ?? "staff",
+    });
     setIsCheckInModalOpen(false);
+    setSelectedBooking(null);
   };
 
-  const handleCheckOut = (request: CustomerRequest) => {
-    setSelectedRequest(request);
+  // ── Check-Out ─────────────────────────────────────────────────────────────
+  const handleCheckOut = (booking: Booking) => {
+    setSelectedBooking(booking);
     setIsCheckOutModalOpen(true);
   };
 
+  /**
+   * Commit check-out to BookingContext.
+   * BR-A57: checkout time must be after check-in time.
+   * Setting status to COMPLETED triggers Manager History & revenue updates.
+   */
   const handleCheckOutSubmit = (photos: string[], notes: string) => {
-    if (!selectedRequest) return;
-    const updated = requests.map((r) =>
-      r.id === selectedRequest.id
-        ? {
-            ...r,
-            status: 'COMPLETED' as const,
-            checkoutPhotos: photos,
-            checkoutAt: new Date().toISOString(),
-            checkoutStaff: 'staff2',
-            checkoutNotes: notes,
-            completedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    setRequests(updated);
+    if (!selectedBooking) return;
+    const now = new Date().toISOString();
+    updateBooking(selectedBooking.id, {
+      status: "COMPLETED",
+      checkOutTime: now,
+      checkoutPhotos: photos,
+      checkoutNotes: notes,
+      checkoutStaff: user?.id ?? "staff",
+      completedAt: now,
+    });
     setIsCheckOutModalOpen(false);
+    setSelectedBooking(null);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Hàng Đợi Công Việc</h1>
-          <p className="text-gray-600">Danh sách các công việc được phân chia cho bạn</p>
+          <p className="text-gray-600 mt-1">
+            Dữ liệu booking thời gian thực — đồng bộ với Dashboard &amp; Lịch sử
+          </p>
+          <button
+            onClick={() => setIsWalkInOpen(true)}
+            className="mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium flex items-center gap-2"
+          >
+            <Users size={16} />
+            Tạo Đơn Walk-In
+          </button>
         </div>
+
+        {/* Walk-in badge */}
+        {walkInCount > 0 && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center min-w-[80px]">
+            <div className="text-purple-700 font-bold text-2xl">{walkInCount}</div>
+            <div className="text-purple-600 text-xs">Walk-In</div>
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
+      {/* ── Stats cards ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border">
           <p className="text-gray-600 text-sm">Chờ Check-In</p>
@@ -192,115 +207,178 @@ export default function StaffQueueView() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* ── Search ───────────────────────────────────────────────────────── */}
       <div className="relative">
-        <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={20}
+        />
         <input
           type="text"
-          placeholder="Tìm kiếm công việc..."
+          placeholder="Tìm theo mã booking, biển số, dịch vụ, khách hàng..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
-      {/* Requests List */}
-      {filteredRequests.length === 0 ? (
+      {/* ── Booking list ─────────────────────────────────────────────────── */}
+      {filteredBookings.length === 0 ? (
         <div className="bg-white p-8 rounded-lg border text-center">
           <AlertCircle className="mx-auto mb-3 text-gray-400" size={32} />
-          <p className="text-gray-600">Không có công việc nào</p>
+          <p className="text-gray-600">Không có booking nào trong hàng đợi</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredRequests.map((request) => (
-            <div
-              key={request.id}
-              className="bg-white p-4 rounded-lg border hover:shadow-md transition"
-            >
-              <div className="flex justify-between items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">{request.title}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[request.status]}`}>
-                      {STATUS_LABELS[request.status]}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${PRIORITY_COLORS[request.priority]}`}>
-                      {request.priority}
-                    </span>
-                  </div>
-                  <p className="text-gray-600 text-sm mb-2">Khách: {request.customerName}</p>
-                  <p className="text-gray-600 text-sm">{request.description}</p>
+          {filteredBookings.map((booking) => {
+            const statusDisplay = STATUS_DISPLAY[booking.status] ?? {
+              label: booking.status,
+              color: "bg-gray-100 text-gray-700",
+            };
 
-                  {/* Check-in/Check-out Info */}
-                  <div className="mt-3 space-y-2">
-                    {request.checkinAt && (
-                      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-2 rounded">
-                        <CheckCircle2 size={16} />
-                        <span>Check-In: {new Date(request.checkinAt).toLocaleTimeString('vi-VN')}</span>
-                      </div>
+            return (
+              <div
+                key={booking.id}
+                className="bg-white p-4 rounded-lg border hover:shadow-md transition"
+              >
+                <div className="flex justify-between items-start gap-4">
+                  {/* ── Info ─────────────────────────────────────────────── */}
+                  <div className="flex-1 min-w-0">
+
+                    {/* Title row */}
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {booking.services.join(", ")}
+                      </h3>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusDisplay.color}`}
+                      >
+                        {statusDisplay.label}
+                      </span>
+                      {booking.isWalkIn && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                          Walk-In
+                        </span>
+                      )}
+                      {booking.queueTicket && (
+                        <span className="text-xs text-gray-400 font-mono">
+                          #{booking.queueTicket}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Meta */}
+                    <div className="space-y-0.5 text-sm text-gray-600">
+                      <p>
+                        Khách:{" "}
+                        <span className="font-medium">
+                          {getCustomerName(booking.customerId)}
+                        </span>
+                      </p>
+                      <p>
+                        Xe:{" "}
+                        <span className="font-mono font-semibold text-gray-800">
+                          {booking.plateNumber}
+                        </span>
+                        {booking.vehicleType && (
+                          <span className="ml-2 text-gray-400 text-xs">
+                            ({booking.vehicleType})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-400 font-mono">
+                        {booking.id} · {booking.startTime}–{booking.endTime}
+                      </p>
+                    </div>
+
+                    {/* Timestamps */}
+                    <div className="mt-2 space-y-1">
+                      {booking.checkInTime && (
+                        <div className="inline-flex items-center gap-1.5 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                          <CheckCircle2 size={12} />
+                          Check-In:{" "}
+                          {new Date(booking.checkInTime).toLocaleTimeString("vi-VN")}
+                        </div>
+                      )}
+                      {booking.checkOutTime && (
+                        <div className="inline-flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded ml-1">
+                          <CheckCircle2 size={12} />
+                          Check-Out:{" "}
+                          {new Date(booking.checkOutTime).toLocaleTimeString("vi-VN")}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── Actions ──────────────────────────────────────────── */}
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    {canCheckIn(booking.status) && (
+                      <button
+                        onClick={() => handleCheckIn(booking)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                      >
+                        Check-In
+                      </button>
                     )}
-                    {request.checkoutAt && (
-                      <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 p-2 rounded">
-                        <CheckCircle2 size={16} />
-                        <span>Check-Out: {new Date(request.checkoutAt).toLocaleTimeString('vi-VN')}</span>
-                      </div>
+                    {canCheckOut(booking.status) && (
+                      <button
+                        onClick={() => handleCheckOut(booking)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
+                      >
+                        Check-Out
+                      </button>
+                    )}
+                    {booking.status === "COMPLETED" && (
+                      <button
+                        disabled
+                        className="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed text-sm font-medium"
+                      >
+                        Hoàn Thành
+                      </button>
                     )}
                   </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {request.status === 'ASSIGNED' && (
-                    <button
-                      onClick={() => handleCheckIn(request)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                    >
-                      Check-In
-                    </button>
-                  )}
-                  {request.status === 'IN_PROGRESS' && (
-                    <button
-                      onClick={() => handleCheckOut(request)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium"
-                    >
-                      Check-Out
-                    </button>
-                  )}
-                  {request.status === 'COMPLETED' && (
-                    <button
-                      disabled
-                      className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm font-medium"
-                    >
-                      Hoàn Thành
-                    </button>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Modals */}
-      {selectedRequest && (
+      {/* ── Modals ───────────────────────────────────────────────────────── */}
+      {selectedBooking && (
         <>
+          {/* Check-In modal: on submit → updateBooking in context */}
           <StaffCheckInModal
             isOpen={isCheckInModalOpen}
-            onClose={() => setIsCheckInModalOpen(false)}
+            onClose={() => {
+              setIsCheckInModalOpen(false);
+              setSelectedBooking(null);
+            }}
             onSubmit={handleCheckInSubmit}
-            requestId={selectedRequest.id}
-            requestTitle={selectedRequest.title}
+            requestId={selectedBooking.id}
+            requestTitle={`${selectedBooking.services.join(", ")} — ${selectedBooking.plateNumber}`}
           />
+
+          {/* Check-Out modal: passes checkin photos for reference */}
           <StaffCheckOutModal
             isOpen={isCheckOutModalOpen}
-            onClose={() => setIsCheckOutModalOpen(false)}
+            onClose={() => {
+              setIsCheckOutModalOpen(false);
+              setSelectedBooking(null);
+            }}
             onSubmit={handleCheckOutSubmit}
-            requestId={selectedRequest.id}
-            requestTitle={selectedRequest.title}
-            checkinPhotos={selectedRequest.checkinPhotos}
+            requestId={selectedBooking.id}
+            requestTitle={`${selectedBooking.services.join(", ")} — ${selectedBooking.plateNumber}`}
+            checkinPhotos={selectedBooking.checkinPhotos}
           />
         </>
       )}
+
+      {/* Walk-In modal: calls addBooking() internally → no parent state needed */}
+      <StaffWalkInModal
+        isOpen={isWalkInOpen}
+        onClose={() => setIsWalkInOpen(false)}
+      />
     </div>
   );
 }

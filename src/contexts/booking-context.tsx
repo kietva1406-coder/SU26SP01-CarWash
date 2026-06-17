@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Booking, TimeSlot, RefundVoucher } from '@/lib/types';
+import { Booking, TimeSlot, RefundVoucher, BookingStatus } from '@/lib/types';
 import { MOCK_BOOKINGS, MOCK_TIME_SLOTS, MOCK_SERVICES } from '@/lib/mock-data';
 
 interface BookingContextType {
@@ -16,6 +16,10 @@ interface BookingContextType {
   getBookingById: (bookingId: string) => Booking | undefined;
   getRefundVouchersByCustomer: (customerId: string) => RefundVoucher[];
   useRefundVoucher: (voucherId: string, bookingId: string) => void;
+  // Helper selectors — avoid duplicating filter logic in every component
+  getActiveBookings: () => Booking[];
+  getCompletedBookings: () => Booking[];
+  getBookingsByStatus: (status: BookingStatus) => Booking[];
 }
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
@@ -135,6 +139,30 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     [refundVouchers]
   );
 
+  // Get all active bookings (awaiting or in service — not terminal states)
+  const getActiveBookings = useCallback(() => {
+    return bookings.filter(
+      (b) =>
+        b.status === 'PENDING_CHECKIN' ||
+        b.status === 'CONFIRMED' ||
+        b.status === 'CHECKED_IN' ||
+        b.status === 'IN_PROGRESS'
+    );
+  }, [bookings]);
+
+  // Get all completed bookings — used by Manager History (BR-A28)
+  const getCompletedBookings = useCallback(() => {
+    return bookings.filter((b) => b.status === 'COMPLETED');
+  }, [bookings]);
+
+  // Get bookings filtered by any specific status
+  const getBookingsByStatus = useCallback(
+    (status: BookingStatus) => {
+      return bookings.filter((b) => b.status === status);
+    },
+    [bookings]
+  );
+
   // Use a refund voucher
   const useRefundVoucher = useCallback((voucherId: string, bookingId: string) => {
     setRefundVouchers((prev) =>
@@ -165,6 +193,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         getBookingById,
         getRefundVouchersByCustomer,
         useRefundVoucher,
+        getActiveBookings,
+        getCompletedBookings,
+        getBookingsByStatus,
       }}
     >
       {children}

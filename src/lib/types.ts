@@ -48,6 +48,14 @@ export interface Booking {
   completionPhoto?: string; // Ảnh chụp xe sau khi hoàn thành (base64 hoặc URL)
   completionPhotoUploadedAt?: string; // Thời gian upload ảnh
   completionPhotoUploadedBy?: string; // ID nhân viên upload ảnh
+  // Staff check-in/check-out photo evidence (BR-A05, BR-A19, BR-A57)
+  checkinPhotos?: string[];           // Photos taken during check-in process
+  checkinNotes?: string;              // Staff notes at check-in
+  checkinStaff?: string;              // ID of staff who performed check-in
+  checkoutPhotos?: string[];          // Photos taken at check-out (completion proof)
+  checkoutNotes?: string;             // Staff notes at check-out
+  checkoutStaff?: string;             // ID of staff who performed check-out
+  completedAt?: string;               // Exact timestamp when service was completed
   createdAt: string;
   updatedAt: string;
 }
