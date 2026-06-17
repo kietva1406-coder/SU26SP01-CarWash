@@ -2,23 +2,22 @@ package model;
 
 import java.time.LocalDateTime;
 
-public class Task {
+public class Booking {
 
     private String id;
-    private String bookingId;
-    private String staffId;
+    private String customerId;
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // Constructors
-    public Task() {
+    public Booking() {
     }
 
-    public Task(String bookingId, String status) {
+    public Booking(String customerId, String status) {
         this.id = java.util.UUID.randomUUID().toString();
-        this.bookingId = bookingId;
-        this.status = status != null ? status : "ASSIGNED";
+        this.customerId = customerId;
+        this.status = status != null ? status : "PENDING";
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -32,20 +31,12 @@ public class Task {
         this.id = id;
     }
 
-    public String getBookingId() {
-        return bookingId;
+    public String getCustomerId() {
+        return customerId;
     }
 
-    public void setBookingId(String bookingId) {
-        this.bookingId = bookingId;
-    }
-
-    public String getStaffId() {
-        return staffId;
-    }
-
-    public void setStaffId(String staffId) {
-        this.staffId = staffId;
+    public void setCustomerId(String customerId) {
+        this.customerId = customerId;
     }
 
     public String getStatus() {
@@ -74,10 +65,9 @@ public class Task {
 
     @Override
     public String toString() {
-        return "Task{" +
+        return "Booking{" +
                 "id='" + id + '\'' +
-                ", bookingId='" + bookingId + '\'' +
-                ", staffId='" + staffId + '\'' +
+                ", customerId='" + customerId + '\'' +
                 ", status='" + status + '\'' +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +

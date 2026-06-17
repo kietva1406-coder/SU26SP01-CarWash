@@ -1,131 +1,192 @@
 package dao;
 
 import model.Task;
-import enums.TaskStatus;
 import utils.DBConnection;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class TaskDao {
 
-    // =========================
-    // INSERT TASK
-    // =========================
-    public void insert(Task task) {
-
-        String sql = "INSERT INTO dbo.task (id, request_id, status, note, created_at, updated_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?)";
+    public void insertTask(Task task) {
+        String sql = "INSERT INTO Task (id, bookingId, staffId, status, createdAt, updatedAt) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            ps.setString(1, task.getId().toString());
-            ps.setString(2, task.getRequestId().toString());
-            ps.setString(3, task.getStatus().name());
-            ps.setString(4, task.getNote());
-            ps.setString(5, task.getCreatedAt());
-            ps.setString(6, task.getUpdatedAt());
+            pstmt.setString(1, task.getId());
+            pstmt.setString(2, task.getBookingId());
+            pstmt.setString(3, task.getStaffId());
+            pstmt.setString(4, task.getStatus());
+            pstmt.setTimestamp(5, Timestamp.valueOf(task.getCreatedAt()));
+            pstmt.setTimestamp(6, Timestamp.valueOf(task.getUpdatedAt()));
 
-            ps.executeUpdate();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Error inserting task", e);
         }
     }
 
-    // =========================
-    // GET BY ID
-    // =========================
-    public Task getById(String id) {
-
-        String sql = "SELECT * FROM dbo.task WHERE id = ?";
+    public Task getTaskById(String id) {
+        String sql = "SELECT * FROM Task WHERE id = ?";
 
         try (Connection conn = DBConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            ps.setString(1, id);
-
-            ResultSet rs = ps.executeQuery();
+            pstmt.setString(1, id);
+            ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
-
-                Task task = new Task();
-
-                task.setId(UUID.fromString(rs.getString("id")));
-                task.setRequestId(UUID.fromString(rs.getString("request_id")));
-                task.setStatus(TaskStatus.valueOf(rs.getString("status")));
-                task.setNote(rs.getString("note"));
-
-                task.setCreatedAt(rs.getTimestamp("created_at").toString());
-                task.setUpdatedAt(rs.getTimestamp("updated_at").toString());
-
-                return task;
+                return mapResultSetToTask(rs);
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            throw new RuntimeException("Error retrieving task", e);
         }
-
         return null;
     }
 
-    // =========================
-    // GET ALL TASKS
-    // =========================
-    public List<Task> getAll() {
-
-        List<Task> list = new ArrayList<>();
-
-        String sql = "SELECT * FROM dbo.task";
+    public List<Task> getTasksByBookingId(String bookingId) {
+        String sql = "SELECT * FROM Task WHERE bookingId = ? ORDER BY createdAt DESC";
+        List<Task> tasks = new ArrayList<>();
 
         try (Connection conn = DBConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, bookingId);
+            ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
-                System.out.println("ROW FOUND = " + rs.getString("id"));
-                Task task = new Task();
-
-                task.setId(UUID.fromString(rs.getString("id")));
-                task.setRequestId(UUID.fromString(rs.getString("request_id")));
-                task.setStatus(TaskStatus.valueOf(rs.getString("status")));
-                task.setNote(rs.getString("note"));
-
-                task.setCreatedAt(rs.getTimestamp("created_at").toString());
-                task.setUpdatedAt(rs.getTimestamp("updated_at").toString());
-                list.add(task);
-
+                tasks.add(mapResultSetToTask(rs));
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            throw new RuntimeException("Error retrieving tasks by booking", e);
         }
-
-        return list;
+        return tasks;
     }
 
-    // =========================
-    // UPDATE STATUS
-    // =========================
-    public void updateStatus(String id, TaskStatus status) {
-
-        String sql = "UPDATE task SET status = ?, updated_at = GETDATE() WHERE id = ?";
+    public List<Task> getTasksByStaffId(String staffId) {
+        String sql = "SELECT * FROM Task WHERE staffId = ? ORDER BY createdAt DESC";
+        List<Task> tasks = new ArrayList<>();
 
         try (Connection conn = DBConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            ps.setString(1, status.name());
-            ps.setString(2, id);
+            pstmt.setString(1, staffId);
+            ResultSet rs = pstmt.executeQuery();
 
-            ps.executeUpdate();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            while (rs.next()) {
+                tasks.add(mapResultSetToTask(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error retrieving tasks by staff", e);
         }
+        return tasks;
+    }
+
+    public List<Task> getTasksByStatus(String status) {
+        String sql = "SELECT * FROM Task WHERE status = ? ORDER BY createdAt DESC";
+        List<Task> tasks = new ArrayList<>();
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, status);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                tasks.add(mapResultSetToTask(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error retrieving tasks by status", e);
+        }
+        return tasks;
+    }
+
+    public List<Task> getAllTasks() {
+        String sql = "SELECT * FROM Task ORDER BY createdAt DESC";
+        List<Task> tasks = new ArrayList<>();
+
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            ResultSet rs = stmt.executeQuery(sql);
+
+            while (rs.next()) {
+                tasks.add(mapResultSetToTask(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error retrieving all tasks", e);
+        }
+        return tasks;
+    }
+
+    public void updateTask(Task task) {
+        String sql = "UPDATE Task SET bookingId = ?, staffId = ?, status = ?, updatedAt = ? WHERE id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, task.getBookingId());
+            pstmt.setString(2, task.getStaffId());
+            pstmt.setString(3, task.getStatus());
+            pstmt.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
+            pstmt.setString(5, task.getId());
+
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Error updating task", e);
+        }
+    }
+
+    public void deleteTask(String id) {
+        String sql = "DELETE FROM Task WHERE id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, id);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Error deleting task", e);
+        }
+    }
+
+    public long getTaskCount() {
+        String sql = "SELECT COUNT(*) FROM Task";
+
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            ResultSet rs = stmt.executeQuery(sql);
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error counting tasks", e);
+        }
+        return 0;
+    }
+
+    private Task mapResultSetToTask(ResultSet rs) throws SQLException {
+        Task task = new Task();
+        task.setId(rs.getString("id"));
+        task.setBookingId(rs.getString("bookingId"));
+        task.setStaffId(rs.getString("staffId"));
+        task.setStatus(rs.getString("status"));
+        
+        Timestamp createdAt = rs.getTimestamp("createdAt");
+        if (createdAt != null) {
+            task.setCreatedAt(createdAt.toLocalDateTime());
+        }
+        
+        Timestamp updatedAt = rs.getTimestamp("updatedAt");
+        if (updatedAt != null) {
+            task.setUpdatedAt(updatedAt.toLocalDateTime());
+        }
+        
+        return task;
     }
 }

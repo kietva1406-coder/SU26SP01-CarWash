@@ -32,7 +32,7 @@ public class TaskController {
                     String id = parts[3];
 
                     TaskDao dao = new TaskDao();
-                    Task task = dao.getById(id);
+                    Task task = dao.getTaskById(id);
 
                     Gson gson = new Gson();
                     String json = gson.toJson(task);
@@ -78,7 +78,7 @@ public class TaskController {
                     }
 
                     try {
-                        dao.TaskDao dao = new dao.TaskDao();
+                        TaskDao dao = new TaskDao();
                         enums.TaskStatus status = enums.TaskStatus.valueOf(statusStr);
                         dao.updateStatus(id, status);
 

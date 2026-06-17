@@ -2,23 +2,22 @@ package model;
 
 import java.time.LocalDateTime;
 
-public class Task {
+public class Customer {
 
     private String id;
-    private String bookingId;
-    private String staffId;
-    private String status;
+    private String fullName;
+    private String phoneNumber;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // Constructors
-    public Task() {
+    public Customer() {
     }
 
-    public Task(String bookingId, String status) {
+    public Customer(String fullName, String phoneNumber) {
         this.id = java.util.UUID.randomUUID().toString();
-        this.bookingId = bookingId;
-        this.status = status != null ? status : "ASSIGNED";
+        this.fullName = fullName;
+        this.phoneNumber = phoneNumber;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -32,28 +31,20 @@ public class Task {
         this.id = id;
     }
 
-    public String getBookingId() {
-        return bookingId;
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setBookingId(String bookingId) {
-        this.bookingId = bookingId;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
-    public String getStaffId() {
-        return staffId;
+    public String getPhoneNumber() {
+        return phoneNumber;
     }
 
-    public void setStaffId(String staffId) {
-        this.staffId = staffId;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -74,11 +65,10 @@ public class Task {
 
     @Override
     public String toString() {
-        return "Task{" +
+        return "Customer{" +
                 "id='" + id + '\'' +
-                ", bookingId='" + bookingId + '\'' +
-                ", staffId='" + staffId + '\'' +
-                ", status='" + status + '\'' +
+                ", fullName='" + fullName + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 '}';
