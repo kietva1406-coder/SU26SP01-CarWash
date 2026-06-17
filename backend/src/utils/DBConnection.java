@@ -10,7 +10,7 @@ public class DBConnection {
             "jdbc:sqlserver://localhost:1433;databaseName=CarWashDB;encrypt=true;trustServerCertificate=true";
 
     private static final String USER = "sa";
-    private static final String PASSWORD = "12345";
+    private static final String PASSWORD = "123456";
 
     static {
         try {

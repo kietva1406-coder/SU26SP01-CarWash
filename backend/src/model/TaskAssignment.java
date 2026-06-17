@@ -7,15 +7,25 @@ public class TaskAssignment {
 
     private UUID id;
     private UUID taskId;
-
     private String staffId;      
     private String assignedBy;   
     private LocalDateTime assignedAt;
     private LocalDateTime checkinAt;
     private LocalDateTime checkoutAt;
 
-    // getters & setters
+    // Constructors
+    public TaskAssignment() {
+    }
 
+    public TaskAssignment(UUID taskId, String staffId, String assignedBy) {
+        this.id = UUID.randomUUID();
+        this.taskId = taskId;
+        this.staffId = staffId;
+        this.assignedBy = assignedBy;
+        this.assignedAt = LocalDateTime.now();
+    }
+
+    // Getters & Setters
     public UUID getId() {
         return id;
     }
@@ -70,5 +80,18 @@ public class TaskAssignment {
 
     public void setCheckoutAt(LocalDateTime checkoutAt) {
         this.checkoutAt = checkoutAt;
+    }
+
+    @Override
+    public String toString() {
+        return "TaskAssignment{" +
+                "id=" + id +
+                ", taskId=" + taskId +
+                ", staffId='" + staffId + '\'' +
+                ", assignedBy='" + assignedBy + '\'' +
+                ", assignedAt=" + assignedAt +
+                ", checkinAt=" + checkinAt +
+                ", checkoutAt=" + checkoutAt +
+                '}';
     }
 }
